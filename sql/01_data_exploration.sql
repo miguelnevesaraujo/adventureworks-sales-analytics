@@ -1,22 +1,68 @@
 USE AdventureWorks2022;
+GO
 
--- Total de encomendas
+/* =========================================================
+   AdventureWorks Sales Analytics
+   01 - Data Exploration
+
+   Purpose:
+   Initial exploration and analysis of the AdventureWorks
+   sales database.
+
+   Topics:
+   - Overall sales performance
+   - Product and category analysis
+   - Customer analysis
+   - Territory and regional performance
+   - Regional customer and order analysis
+   - Product performance by territory
+   - Bikes deep-dive analysis
+   - Advanced SQL analysis using CTEs and window functions
+
+   Database:
+   AdventureWorks2022
+
+   Tools:
+   SQL Server
+   ========================================================= */
+
+-- Explore available tables
+
+SELECT
+    TABLE_SCHEMA,
+    TABLE_NAME
+FROM INFORMATION_SCHEMA.TABLES
+WHERE TABLE_TYPE = 'BASE TABLE'
+ORDER BY TABLE_SCHEMA, TABLE_NAME;
+
+-- Inspect sales order details
+
+SELECT TOP 10
+    *
+FROM Sales.SalesOrderDetail;
+
+-- Total number of orders
+
 SELECT
     COUNT(*) AS TotalOrders
 FROM Sales.SalesOrderHeader;
 
--- Receita total
+-- Total revenue
+
 SELECT
     SUM(TotalDue) AS TotalRevenue
 FROM Sales.SalesOrderHeader;
 
--- Receita por ano
+-- Revenue by year
+
 SELECT
     YEAR(OrderDate) AS SalesYear,
     SUM(TotalDue) AS Revenue
 FROM Sales.SalesOrderHeader
 GROUP BY YEAR(OrderDate)
 ORDER BY SalesYear;
+
+-- Revenue and previous-year revenue
 
 WITH yearly_sales AS (
     SELECT
@@ -31,6 +77,8 @@ SELECT
     LAG(Revenue) OVER (ORDER BY SalesYear) AS PreviousYearRevenue
 FROM yearly_sales
 ORDER BY SalesYear;
+
+-- Year-over-year revenue growth
 
 WITH yearly_sales AS (
     SELECT
@@ -50,9 +98,12 @@ SELECT
     SalesYear,
     Revenue,
     PreviousYearRevenue,
-    (Revenue - PreviousYearRevenue) / PreviousYearRevenue * 100 AS YoYGrowth
+    (Revenue - PreviousYearRevenue)
+        / PreviousYearRevenue * 100 AS YoYGrowth
 FROM sales_with_previous
 ORDER BY SalesYear;
+
+-- Orders, revenue and average order value by year
 
 SELECT
     YEAR(OrderDate) AS SalesYear,
@@ -63,16 +114,7 @@ FROM Sales.SalesOrderHeader
 GROUP BY YEAR(OrderDate)
 ORDER BY SalesYear;
 
-SELECT
-    TABLE_SCHEMA,
-    TABLE_NAME
-FROM INFORMATION_SCHEMA.TABLES
-WHERE TABLE_TYPE = 'BASE TABLE'
-ORDER BY TABLE_SCHEMA, TABLE_NAME;
-
-SELECT TOP 10
-    *
-FROM Sales.SalesOrderDetail;
+-- Inspect sales order details with product information
 
 SELECT TOP 10
     sod.SalesOrderID,
@@ -85,6 +127,8 @@ FROM Sales.SalesOrderDetail AS sod
 INNER JOIN Production.Product AS p
     ON sod.ProductID = p.ProductID;
 
+-- Top products by revenue
+
 SELECT TOP 10
     p.Name AS ProductName,
     SUM(sod.LineTotal) AS Revenue
@@ -93,6 +137,9 @@ INNER JOIN Production.Product AS p
     ON sod.ProductID = p.ProductID
 GROUP BY p.Name
 ORDER BY Revenue DESC;
+
+
+-- Top products by revenue, units sold and average unit price
 
 SELECT TOP 10
     p.Name AS ProductName,
@@ -104,6 +151,8 @@ INNER JOIN Production.Product AS p
     ON sod.ProductID = p.ProductID
 GROUP BY p.Name
 ORDER BY Revenue DESC;
+
+-- Explore product hierarchy
 
 SELECT TOP 10
     p.Name AS ProductName,
@@ -118,6 +167,8 @@ INNER JOIN Production.ProductSubcategory AS ps
 INNER JOIN Production.ProductCategory AS pc
     ON ps.ProductCategoryID = pc.ProductCategoryID;
 
+-- Revenue by product category
+
 SELECT
     pc.Name AS CategoryName,
     SUM(sod.LineTotal) AS Revenue
@@ -131,10 +182,13 @@ INNER JOIN Production.ProductCategory AS pc
 GROUP BY pc.Name
 ORDER BY Revenue DESC;
 
+-- Revenue share by product category
+
 SELECT
     pc.Name AS CategoryName,
     SUM(sod.LineTotal) AS Revenue,
-    SUM(sod.LineTotal) / SUM(SUM(sod.LineTotal)) OVER () * 100 AS RevenuePercentage
+    SUM(sod.LineTotal)
+        / SUM(SUM(sod.LineTotal)) OVER () * 100 AS RevenuePercentage
 FROM Sales.SalesOrderDetail AS sod
 INNER JOIN Production.Product AS p
     ON sod.ProductID = p.ProductID
@@ -145,6 +199,8 @@ INNER JOIN Production.ProductCategory AS pc
 GROUP BY pc.Name
 ORDER BY Revenue DESC;
 
+-- Explore customer and person relationship
+
 SELECT TOP 10
     soh.SalesOrderID,
     soh.CustomerID,
@@ -153,6 +209,8 @@ SELECT TOP 10
 FROM Sales.SalesOrderHeader AS soh
 INNER JOIN Sales.Customer AS c
     ON soh.CustomerID = c.CustomerID;
+
+-- Top customers by revenue and number of orders
 
 SELECT TOP 10
     soh.CustomerID,
@@ -163,6 +221,8 @@ INNER JOIN Sales.Customer AS c
     ON soh.CustomerID = c.CustomerID
 GROUP BY soh.CustomerID
 ORDER BY TotalRevenue DESC;
+
+-- Top customers including average order value
 
 SELECT TOP 10
     soh.CustomerID,
@@ -175,15 +235,19 @@ INNER JOIN Sales.Customer AS c
 GROUP BY soh.CustomerID
 ORDER BY TotalRevenue DESC;
 
+-- Inspect individual customers
+
 SELECT TOP 10
     c.CustomerID,
     c.PersonID,
     p.FirstName,
     p.LastName
-FROM Sales.Customer as c
-INNER JOIN Person.Person as p
+FROM Sales.Customer AS c
+INNER JOIN Person.Person AS p
     ON c.PersonID = p.BusinessEntityID
 WHERE c.PersonID IS NOT NULL;
+
+-- Top named customers by revenue
 
 SELECT TOP 10
     c.CustomerID,
@@ -201,6 +265,8 @@ GROUP BY
     p.FirstName,
     p.LastName
 ORDER BY TotalRevenue DESC;
+
+-- Top 10 customers and their revenue contribution
 
 WITH customer_sales AS (
     SELECT
@@ -226,6 +292,8 @@ SELECT TOP 10
     TotalRevenue / SUM(TotalRevenue) OVER () * 100 AS RevenuePercentage
 FROM customer_sales
 ORDER BY TotalRevenue DESC;
+
+-- Total revenue contribution of the top 10 customers
 
 WITH customer_sales AS (
     SELECT
@@ -255,8 +323,12 @@ SELECT
     SUM(RevenuePercentage) AS Top10RevenuePercentage
 FROM top_10_customers;
 
+-- Explore sales territories
+
 SELECT *
 FROM Sales.SalesTerritory;
+
+-- Inspect orders and territory information
 
 SELECT TOP 10
     soh.SalesOrderID,
@@ -269,12 +341,14 @@ FROM Sales.SalesOrderHeader AS soh
 INNER JOIN Sales.SalesTerritory AS st
     ON soh.TerritoryID = st.TerritoryID;
 
+-- Revenue by territory
+
 SELECT
     st.Name AS TerritoryName,
     st.CountryRegionCode,
     st.[Group] AS Region,
     SUM(soh.TotalDue) AS TotalRevenue
-FROM Sales.SalesOrderHeader AS soh 
+FROM Sales.SalesOrderHeader AS soh
 INNER JOIN Sales.SalesTerritory AS st
     ON soh.TerritoryID = st.TerritoryID
 GROUP BY
@@ -282,6 +356,8 @@ GROUP BY
     st.CountryRegionCode,
     st.[Group]
 ORDER BY TotalRevenue DESC;
+
+-- Revenue share by territory
 
 SELECT
     st.Name AS TerritoryName,
@@ -299,15 +375,18 @@ GROUP BY
     st.[Group]
 ORDER BY TotalRevenue DESC;
 
+-- Revenue by region
+
 SELECT
     st.[Group] AS Region,
     SUM(soh.TotalDue) AS TotalRevenue
 FROM Sales.SalesOrderHeader AS soh
 INNER JOIN Sales.SalesTerritory AS st
     ON soh.TerritoryID = st.TerritoryID
-GROUP BY
-    st.[Group]
+GROUP BY st.[Group]
 ORDER BY TotalRevenue DESC;
+
+-- Revenue share by region
 
 SELECT
     st.[Group] AS Region,
@@ -317,9 +396,10 @@ SELECT
 FROM Sales.SalesOrderHeader AS soh
 INNER JOIN Sales.SalesTerritory AS st
     ON soh.TerritoryID = st.TerritoryID
-GROUP BY
-    st.[Group]
+GROUP BY st.[Group]
 ORDER BY TotalRevenue DESC;
+
+-- Revenue by region and year
 
 SELECT
     YEAR(soh.OrderDate) AS SalesYear,
@@ -334,6 +414,8 @@ GROUP BY
 ORDER BY
     SalesYear,
     TotalRevenue DESC;
+
+-- Previous-year revenue by region
 
 WITH regional_sales AS (
     SELECT
@@ -359,6 +441,8 @@ FROM regional_sales
 ORDER BY
     Region,
     SalesYear;
+
+-- Year-over-year growth by region
 
 WITH regional_sales AS (
     SELECT
@@ -395,6 +479,8 @@ ORDER BY
     Region,
     SalesYear;
 
+-- Year-over-year growth by territory
+
 WITH regional_sales AS (
     SELECT
         YEAR(soh.OrderDate) AS SalesYear,
@@ -430,6 +516,8 @@ ORDER BY
     Territory,
     SalesYear;
 
+-- Territory year-over-year performance for 2014
+
 WITH territory_sales AS (
     SELECT
         YEAR(soh.OrderDate) AS SalesYear,
@@ -463,18 +551,21 @@ FROM territory_sales_with_previous
 WHERE SalesYear = 2014
 ORDER BY TotalRevenue DESC;
 
+-- Customers and revenue by territory
+
 SELECT
     st.Name AS Territory,
     COUNT(DISTINCT soh.CustomerID) AS NumberOfCustomers,
     SUM(soh.TotalDue) AS TotalRevenue,
-    SUM(soh.TotalDue) / COUNT(DISTINCT soh.CustomerID) AS RevenuePerCustomer
+    SUM(soh.TotalDue)
+        / COUNT(DISTINCT soh.CustomerID) AS RevenuePerCustomer
 FROM Sales.SalesOrderHeader AS soh
 INNER JOIN Sales.SalesTerritory AS st
     ON soh.TerritoryID = st.TerritoryID
-GROUP BY
-    st.Name
-ORDER BY
-    TotalRevenue DESC;
+GROUP BY st.Name
+ORDER BY TotalRevenue DESC;
+
+-- Inspect customer types
 
 SELECT
     CustomerID,
@@ -482,6 +573,8 @@ SELECT
     StoreID
 FROM Sales.Customer
 ORDER BY CustomerID;
+
+-- Customer type by territory
 
 SELECT
     st.Name AS Territory,
@@ -508,6 +601,8 @@ ORDER BY
     st.Name,
     TotalRevenue DESC;
 
+-- Customer and order metrics by territory
+
 SELECT
     st.Name AS Territory,
     COUNT(DISTINCT soh.CustomerID) AS NumberOfCustomers,
@@ -522,10 +617,10 @@ INNER JOIN Sales.Customer AS c
     ON soh.CustomerID = c.CustomerID
 INNER JOIN Sales.SalesTerritory AS st
     ON soh.TerritoryID = st.TerritoryID
-GROUP BY
-    st.Name
-ORDER BY
-    TotalRevenue DESC;
+GROUP BY st.Name
+ORDER BY TotalRevenue DESC;
+
+-- Revenue by territory and category
 
 SELECT
     st.Name AS Territory,
@@ -549,6 +644,8 @@ ORDER BY
     st.Name,
     TotalRevenue DESC;
 
+-- Revenue by territory and subcategory
+
 SELECT
     st.Name AS Territory,
     ps.Name AS SubcategoryName,
@@ -569,6 +666,8 @@ ORDER BY
     st.Name,
     TotalRevenue DESC;
 
+-- Revenue by selected territory and bike subcategory
+
 SELECT
     st.Name AS Territory,
     ps.Name AS SubcategoryName,
@@ -582,6 +681,8 @@ INNER JOIN Production.Product AS p
     ON sod.ProductID = p.ProductID
 INNER JOIN Production.ProductSubcategory AS ps
     ON p.ProductSubcategoryID = ps.ProductSubcategoryID
+INNER JOIN Production.ProductCategory AS pc
+    ON ps.ProductCategoryID = pc.ProductCategoryID
 WHERE st.Name IN (
     'Central',
     'Southeast',
@@ -595,6 +696,8 @@ GROUP BY
 ORDER BY
     st.Name,
     TotalRevenue DESC;
+
+-- Revenue by territory and bike category
 
 SELECT
     st.Name AS Territory,
@@ -627,6 +730,8 @@ GROUP BY
 ORDER BY
     st.Name,
     AverageOrderValue DESC;
+
+-- Bike products by territory
 
 SELECT
     st.Name AS Territory,
@@ -660,12 +765,15 @@ ORDER BY
     st.Name,
     TotalRevenue DESC;
 
+-- Bike products by territory including average unit price
+
 SELECT
     st.Name AS Territory,
     p.Name AS ProductName,
     SUM(sod.LineTotal) AS TotalRevenue,
     SUM(sod.OrderQty) AS UnitsSold,
-    SUM(sod.LineTotal) / SUM(sod.OrderQty) AS AverageUnitPrice
+    SUM(sod.LineTotal)
+        / SUM(sod.OrderQty) AS AverageUnitPrice
 FROM Sales.SalesOrderHeader AS soh
 INNER JOIN Sales.SalesTerritory AS st
     ON soh.TerritoryID = st.TerritoryID
@@ -692,6 +800,8 @@ GROUP BY
 ORDER BY
     st.Name,
     TotalRevenue DESC;
+
+-- Bike performance by territory
 
 SELECT
     st.Name AS Territory,
@@ -722,10 +832,10 @@ WHERE
         'Northwest'
     )
     AND pc.Name = 'Bikes'
-GROUP BY
-    st.Name
-ORDER BY
-    AverageOrderValue DESC;
+GROUP BY st.Name
+ORDER BY AverageOrderValue DESC;
+
+-- Bike purchases by customer and territory
 
 SELECT
     st.Name AS Territory,
@@ -769,6 +879,8 @@ ORDER BY
     st.Name,
     BikesRevenue DESC;
 
+-- Top customers by bikes per order in Central territory
+
 SELECT TOP 20
     c.CustomerID,
     p.FirstName + ' ' + p.LastName AS CustomerName,
@@ -799,8 +911,9 @@ GROUP BY
     c.CustomerID,
     p.FirstName,
     p.LastName
-ORDER BY
-    BikesPerOrder DESC;
+ORDER BY BikesPerOrder DESC;
+
+-- Bike performance in selected territories
 
 SELECT
     st.Name AS Territory,
@@ -826,10 +939,10 @@ INNER JOIN Production.ProductCategory AS pc
 WHERE
     st.Name IN ('Central', 'Northeast', 'Southeast')
     AND pc.Name = 'Bikes'
-GROUP BY
-    st.Name
-ORDER BY
-    BikesPerOrder DESC;
+GROUP BY st.Name
+ORDER BY BikesPerOrder DESC;
+
+-- Top 5 bike customers per territory
 
 WITH customer_bikes AS (
     SELECT
@@ -881,6 +994,8 @@ ORDER BY
     Territory,
     CustomerRank;
 
+-- Distribution of bikes per order
+
 WITH bikes_per_order AS (
     SELECT
         st.Name AS Territory,
@@ -913,6 +1028,8 @@ SELECT
 FROM bikes_per_order
 GROUP BY Territory
 ORDER BY AverageBikesPerOrder DESC;
+
+-- Average and median bikes per order
 
 WITH bikes_per_order AS (
     SELECT
@@ -947,6 +1064,8 @@ SELECT DISTINCT
 FROM bikes_per_order
 ORDER BY MedianBikesPerOrder DESC;
 
+-- Top individual bike orders
+
 WITH bikes_per_order AS (
     SELECT
         st.Name AS Territory,
@@ -979,6 +1098,8 @@ SELECT TOP 10
 FROM bikes_per_order
 ORDER BY BikesSold DESC;
 
+-- Inspect a specific bike order
+
 SELECT
     soh.SalesOrderID,
     st.Name AS Territory,
@@ -1000,8 +1121,9 @@ INNER JOIN Production.ProductCategory AS pc
 WHERE
     soh.SalesOrderID = 47395
     AND pc.Name = 'Bikes'
-ORDER BY
-    sod.LineTotal DESC;
+ORDER BY sod.LineTotal DESC;
+
+-- Bike subcategory performance by territory
 
 SELECT
     st.Name AS Territory,
@@ -1032,34 +1154,8 @@ ORDER BY
     st.Name,
     Revenue DESC;
 
-SELECT
-    st.Name AS Territory,
-    ps.Name AS Subcategory,
-    SUM(sod.OrderQty) AS UnitsSold,
-    SUM(sod.LineTotal) AS Revenue,
-    COUNT(DISTINCT soh.SalesOrderID) AS NumberOfOrders,
-    SUM(sod.OrderQty) * 1.0
-        / COUNT(DISTINCT soh.SalesOrderID) AS UnitsPerOrder
-FROM Sales.SalesOrderHeader AS soh
-INNER JOIN Sales.SalesTerritory AS st
-    ON soh.TerritoryID = st.TerritoryID
-INNER JOIN Sales.SalesOrderDetail AS sod
-    ON soh.SalesOrderID = sod.SalesOrderID
-INNER JOIN Production.Product AS pr
-    ON sod.ProductID = pr.ProductID
-INNER JOIN Production.ProductSubcategory AS ps
-    ON pr.ProductSubcategoryID = ps.ProductSubcategoryID
-INNER JOIN Production.ProductCategory AS pc
-    ON ps.ProductCategoryID = pc.ProductCategoryID
-WHERE
-    st.Name IN ('Central', 'Northeast', 'Southeast')
-    AND pc.Name = 'Bikes'
-GROUP BY
-    st.Name,
-    ps.Name
-ORDER BY
-    st.Name,
-    Revenue DESC;
+
+-- Revenue share by bike subcategory and territory
 
 WITH territory_subcategory_sales AS (
     SELECT
