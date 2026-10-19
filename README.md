@@ -1,4 +1,4 @@
-# 📊 AdventureWorks Sales Analytics
+# AdventureWorks Sales Analytics
 
 ## Project Overview
 
@@ -244,4 +244,3 @@ The analysis is based on historical sample data. Findings should therefore be in
 - `python/` — Exploratory data analysis, visualizations, and business insights.
 - `powerbi/` — Interactive Power BI dashboard.
 - `images/` — Dashboard screenshots and project visualizations.
-- `docs/` — Supporting project documentation.
